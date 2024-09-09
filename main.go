@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/gif"
 	"image/jpeg"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
@@ -13,10 +15,12 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/gen2brain/avif"
 	"github.com/nfnt/resize"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/image/webp"
 )
 
 func main() {
@@ -114,7 +118,23 @@ func downloadImage(url string) (image.Image, error) {
 		return nil, fmt.Errorf("failed to read image data: %w", err)
 	}
 
-	img, _, err := image.Decode(bytes.NewReader(imgData))
+	contentType := resp.Header.Get("Content-Type")
+	var img image.Image
+	switch contentType {
+	case "image/jpeg":
+		img, err = jpeg.Decode(bytes.NewReader(imgData))
+	case "image/png":
+		img, err = png.Decode(bytes.NewReader(imgData))
+	case "image/gif":
+		img, err = gif.Decode(bytes.NewReader(imgData))
+	case "image/webp":
+		img, err = webp.Decode(bytes.NewReader(imgData))
+	case "image/avif":
+		img, err = avif.Decode(bytes.NewReader(imgData))
+	default:
+		return nil, fmt.Errorf("unsupported image format: %s", contentType)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
